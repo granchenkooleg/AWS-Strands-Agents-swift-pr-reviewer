@@ -1,11 +1,11 @@
 """
-CLI entry point — slice 1.
+CLI entry point — slice 2.
 
     python -m app.main --pr data/prs/001_force_unwrap
 
-Slice 1 runs only the Correctness reviewer over a single PR. Subsequent
-slices add the other reviewers, the Graph topology, the HITL gate, evals,
-and observability.
+Slice 2 runs four reviewers sequentially (correctness, style, api_design,
+test_coverage), aggregates findings, and renders a table with a Category
+column.
 """
 import argparse
 import json
@@ -16,8 +16,14 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from app.agents import correctness_reviewer
-from app.models import Finding
+from app.agents import (
+    correctness_reviewer,
+    style_reviewer,
+    api_design_reviewer,
+    test_coverage_reviewer,
+)
+from app.agents import aggregator
+from app.models import Finding, ReviewerOutput
 from app.tools.parse_diff import parse_unified_diff
 
 
@@ -40,7 +46,7 @@ def _load_pr(pr_dir: Path) -> tuple[str, dict]:
 def _render(console: Console, pr_id: str, findings: list[Finding]) -> None:
     if not findings:
         console.print(Panel(
-            "[green]No correctness issues found.[/green]",
+            "[green]No issues found.[/green]",
             title=f"[bold]Review — {pr_id}[/bold]",
             border_style="green",
         ))
@@ -48,12 +54,14 @@ def _render(console: Console, pr_id: str, findings: list[Finding]) -> None:
 
     table = Table(title=f"Review — {pr_id}", show_lines=True)
     table.add_column("Severity", no_wrap=True)
+    table.add_column("Category", no_wrap=True)
     table.add_column("Location", no_wrap=True)
     table.add_column("Title")
     for f in findings:
         color = SEVERITY_COLOR.get(f.severity, "white")
         table.add_row(
             f"[{color}]{f.severity}[/{color}]",
+            f.category,
             f"{f.file_path}:{f.line}",
             f.title,
         )
@@ -70,7 +78,7 @@ def _render(console: Console, pr_id: str, findings: list[Finding]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run the Swift PR reviewer over a synthetic PR (slice 1)."
+        description="Run the Swift PR reviewer over a synthetic PR (slice 2)."
     )
     parser.add_argument(
         "--pr",
@@ -91,17 +99,28 @@ def main() -> int:
 
     console.print(f"[dim]Parsed {len(hunks)} hunk(s) across "
                   f"{len({h.file_path for h in hunks})} file(s). "
-                  f"Running correctness reviewer…[/dim]")
+                  f"Running correctness, style, api_design, test_coverage reviewers…[/dim]")
 
-    try:
-        output = correctness_reviewer.review(hunks)
-    except Exception as e:
-        console.print(f"[red]Reviewer failed:[/red] {type(e).__name__}: {e}")
-        return 1
+    _reviewers = [
+        ("correctness", correctness_reviewer.review),
+        ("style", style_reviewer.review),
+        ("api_design", api_design_reviewer.review),
+        ("test_coverage", test_coverage_reviewer.review),
+    ]
 
-    _render(console, pr_id, output.findings)
-    if output.confidence_note:
-        console.print(f"\n[dim]Reviewer note: {output.confidence_note}[/dim]")
+    outputs: list[ReviewerOutput] = []
+    for name, fn in _reviewers:
+        try:
+            console.print(f"[dim]  → {name}…[/dim]")
+            result = fn(hunks)
+            outputs.append(result)
+            if result.confidence_note:
+                console.print(f"[dim]    note: {result.confidence_note}[/dim]")
+        except Exception as e:
+            console.print(f"[yellow]  {name} reviewer failed (skipped):[/yellow] {type(e).__name__}: {e}")
+
+    findings = aggregator.aggregate(outputs)
+    _render(console, pr_id, findings)
     return 0
 
 
