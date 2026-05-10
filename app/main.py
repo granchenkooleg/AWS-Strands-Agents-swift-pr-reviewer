@@ -1,10 +1,11 @@
 """
-CLI entry point — slice 2.
+CLI entry point — slice 3.
 
     python -m app.main --pr data/prs/001_force_unwrap
 
-Slice 2 runs four reviewers sequentially (correctness, style, api_design,
-test_coverage), aggregates findings, and renders a table with a Category
+Slice 3 replaces the sequential reviewer loop with a Strands GraphBuilder
+topology: all four reviewers run in parallel as entry-point nodes, results
+are aggregated by plain Python, and the findings table includes a Category
 column.
 """
 import argparse
@@ -16,14 +17,9 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from app.agents import (
-    correctness_reviewer,
-    style_reviewer,
-    api_design_reviewer,
-    test_coverage_reviewer,
-)
 from app.agents import aggregator
-from app.models import Finding, ReviewerOutput
+from app.graph import run_reviewers
+from app.models import Finding
 from app.tools.parse_diff import parse_unified_diff
 
 
@@ -78,7 +74,7 @@ def _render(console: Console, pr_id: str, findings: list[Finding]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run the Swift PR reviewer over a synthetic PR (slice 2)."
+        description="Run the Swift PR reviewer over a synthetic PR (slice 3)."
     )
     parser.add_argument(
         "--pr",
@@ -99,26 +95,15 @@ def main() -> int:
 
     console.print(f"[dim]Parsed {len(hunks)} hunk(s) across "
                   f"{len({h.file_path for h in hunks})} file(s). "
-                  f"Running correctness, style, api_design, test_coverage reviewers…[/dim]")
+                  f"Running four reviewers in parallel via Graph…[/dim]")
 
-    _reviewers = [
-        ("correctness", correctness_reviewer.review),
-        ("style", style_reviewer.review),
-        ("api_design", api_design_reviewer.review),
-        ("test_coverage", test_coverage_reviewer.review),
-    ]
+    try:
+        outputs = run_reviewers(hunks)
+    except Exception as e:
+        console.print(f"[red]Graph execution failed:[/red] {type(e).__name__}: {e}")
+        return 1
 
-    outputs: list[ReviewerOutput] = []
-    for name, fn in _reviewers:
-        try:
-            console.print(f"[dim]  → {name}…[/dim]")
-            result = fn(hunks)
-            outputs.append(result)
-            if result.confidence_note:
-                console.print(f"[dim]    note: {result.confidence_note}[/dim]")
-        except Exception as e:
-            console.print(f"[yellow]  {name} reviewer failed (skipped):[/yellow] {type(e).__name__}: {e}")
-
+    console.print(f"[dim]{len(outputs)}/4 reviewer(s) returned findings.[/dim]")
     findings = aggregator.aggregate(outputs)
     _render(console, pr_id, findings)
     return 0
