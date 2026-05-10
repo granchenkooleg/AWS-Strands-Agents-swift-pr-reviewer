@@ -1,19 +1,25 @@
 """
-app/graph.py — Slice 3
+app/graph.py — Slice 4
 
-GraphBuilder topology: four reviewer agents as parallel entry-point nodes.
-Nodes without incoming edges are auto-detected as entry points by the Graph
-framework and executed concurrently.
+Two graph topologies:
 
-The aggregator stays as plain Python for Slice 3; it becomes an Agent node
-in Slice 4 when the skill and hooks land.
+1. run_reviewers() — four reviewer agents as parallel entry-point nodes (Slice 3).
+   Accepts optional agent-level hooks (RunLogger) for per-invocation logging.
+
+2. build_report_writer_graph() — single report-writer node with HITL interrupt
+   (Slice 4). Graph-level hooks fire BeforeNodeCallEvent (ApprovalHook).
+   Agent-level hooks fire BeforeInvocationEvent (ApprovalHook + RunLogger).
 """
 import logging
 from pathlib import Path
+from typing import Any
 
 from strands import Agent
+from strands.hooks import HookProvider
 from strands.multiagent import GraphBuilder
+from strands.multiagent.graph import Graph
 
+from app.agents import report_writer as report_writer_module
 from app.models import Hunk, ReviewerOutput
 from app.provider import build_model
 
@@ -24,9 +30,9 @@ _STEERING_DIR = Path(__file__).parent / "agents" / "_steering"
 
 # (node_id, steering_file, agent_name) — insertion order preserved for result extraction
 _REVIEWER_CONFIGS: list[tuple[str, str, str]] = [
-    ("correctness", "correctness.md", "correctness-reviewer"),
-    ("style",       "style.md",       "style-reviewer"),
-    ("api_design",  "api_design.md",  "api-design-reviewer"),
+    ("correctness",   "correctness.md",   "correctness-reviewer"),
+    ("style",         "style.md",         "style-reviewer"),
+    ("api_design",    "api_design.md",    "api-design-reviewer"),
     ("test_coverage", "test_coverage.md", "test-coverage-reviewer"),
 ]
 
@@ -39,17 +45,22 @@ def _format_hunks(hunks: list[Hunk]) -> str:
     return "\n\n".join(blocks)
 
 
-def run_reviewers(hunks: list[Hunk]) -> list[ReviewerOutput]:
+# ---------------------------------------------------------------------------
+# Reviewer graph
+# ---------------------------------------------------------------------------
+
+def run_reviewers(
+    hunks: list[Hunk],
+    agent_hooks: list[HookProvider] | None = None,
+) -> list[ReviewerOutput]:
     """
     Run all four reviewer agents in parallel via a Strands Graph.
 
-    Each node receives the same formatted diff task. Node system_prompts
-    constrain each agent to its domain (correctness / style / api_design /
-    test_coverage). Nodes with no incoming edges are auto-detected as entry
-    points and run concurrently.
+    Args:
+        hunks: Parsed diff hunks.
+        agent_hooks: Hooks registered on each reviewer Agent (e.g. RunLogger).
 
-    Returns one ReviewerOutput per reviewer that succeeded. Failed nodes are
-    skipped (fail-soft); the caller aggregates and renders.
+    Returns one ReviewerOutput per reviewer that succeeded; failed nodes skipped.
     """
     if not hunks:
         return []
@@ -63,7 +74,6 @@ def run_reviewers(hunks: list[Hunk]) -> list[ReviewerOutput]:
     builder = (
         GraphBuilder()
         .set_graph_id("swift-pr-reviewer")
-        # One execution per reviewer node; no cycles exist in this topology.
         .set_max_node_executions(len(_REVIEWER_CONFIGS))
     )
 
@@ -74,11 +84,10 @@ def run_reviewers(hunks: list[Hunk]) -> list[ReviewerOutput]:
             model=build_model(max_tokens=2048),
             system_prompt=system_prompt,
             structured_output_model=ReviewerOutput,
+            hooks=agent_hooks or [],
             callback_handler=None,
         )
         builder.add_node(agent, node_id=node_id)
-        # No set_entry_point calls needed: nodes without dependencies are
-        # auto-detected as entry points and scheduled in the same parallel batch.
 
     graph = builder.build()
     graph_result = graph(task)
@@ -102,3 +111,38 @@ def run_reviewers(hunks: list[Hunk]) -> list[ReviewerOutput]:
             logger.warning("node_id=%s produced no structured output", node_id)
 
     return outputs
+
+
+# ---------------------------------------------------------------------------
+# Report-writer graph (HITL)
+# ---------------------------------------------------------------------------
+
+def build_report_writer_graph(
+    agent_hooks: list[HookProvider] | None = None,
+    graph_hooks: list[HookProvider] | None = None,
+) -> Graph:
+    """
+    Build a single-node graph containing the report-writer Agent.
+
+    Graph-level hooks (graph_hooks) receive BeforeNodeCallEvent — this is where
+    ApprovalHook raises the interrupt for the HITL gate.
+
+    Agent-level hooks (agent_hooks) receive BeforeInvocationEvent — ApprovalHook
+    uses this to replace the agent's task with only the accepted findings on resume.
+
+    The graph uses execution_timeout instead of max_node_executions because the
+    report-writer node executes twice (interrupted first call + resumed second call).
+    """
+    rw_agent = report_writer_module.build_agent(hooks=agent_hooks)
+
+    builder = (
+        GraphBuilder()
+        .set_graph_id("swift-pr-reviewer-report")
+        .set_execution_timeout(300)  # 5 min; also suppresses the no-limits warning
+    )
+    builder.add_node(rw_agent, node_id="report-writer")
+
+    if graph_hooks:
+        builder.set_hook_providers(graph_hooks)
+
+    return builder.build()
