@@ -1,0 +1,8 @@
+{
+  "pr_id": "001_force_unwrap",
+  "title": "Simplify UserService API by removing optional return",
+  "description": "Refactor fetchUser to return non-optional User. Add helper for current username from UserDefaults.",
+  "target_branch": "main",
+  "author": "synthetic",
+  "files_changed": ["Sources/UserService.swift"]
+}

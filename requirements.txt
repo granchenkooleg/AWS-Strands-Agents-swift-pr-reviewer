@@ -1,0 +1,28 @@
+# Core
+strands-agents>=1.0.0          # verify exact version against current PyPI before pinning
+strands-agents-tools>=0.2.0    # community tools (file_read, current_time, handoff_to_user)
+# strands-evals          # slice 5 only; PyPI version is 0.0.1 — re-enable when needed
+
+# Model providers (pick one at runtime via STRANDS_PROVIDER)
+boto3>=1.34.0                  # Bedrock
+anthropic>=0.83.0              # direct Anthropic provider for local dev
+
+# MCP
+mcp>=1.0.0                     # filesystem MCP server uses npx; client lib is mcp
+
+# Diff parsing — use the maintained library, not a hand-rolled regex parser
+unidiff>=0.7.5
+
+# Schema validation (already a Strands transitive but pin for clarity)
+pydantic>=2.6
+
+# CLI presentation
+rich>=14.0
+
+# Observability
+opentelemetry-sdk>=1.27
+opentelemetry-exporter-otlp>=1.27
+aws-opentelemetry-distro>=0.6  # ADOT — AWS distribution for OTel exporting to CloudWatch
+
+# Dev
+python-dotenv>=1.0

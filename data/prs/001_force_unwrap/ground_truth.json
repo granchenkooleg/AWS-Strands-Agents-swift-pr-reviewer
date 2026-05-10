@@ -1,0 +1,33 @@
+{
+  "pr_id": "001_force_unwrap",
+  "expected_findings": [
+    {
+      "file_path": "Sources/UserService.swift",
+      "line": 15,
+      "severity": "blocker",
+      "category": "correctness",
+      "title_keywords": ["force-unwrap", "force unwrap", "!"],
+      "rationale": "response! crashes if network returns nil; should propagate as throws or return Optional"
+    },
+    {
+      "file_path": "Sources/UserService.swift",
+      "line": 19,
+      "severity": "blocker",
+      "category": "correctness",
+      "title_keywords": ["force-unwrap", "force unwrap", "UserDefaults", "!"],
+      "rationale": "UserDefaults.string returns Optional<String>; force-unwrapping crashes on first launch when key is absent"
+    },
+    {
+      "file_path": "Sources/UserService.swift",
+      "line": 13,
+      "severity": "major",
+      "category": "api_design",
+      "title_keywords": ["api break", "breaking change", "non-optional", "return type"],
+      "rationale": "Public method changed from User? to User — source-breaking change for callers"
+    }
+  ],
+  "must_not_flag": [
+    "the let response binding (it is fine)",
+    "the public access modifier (unchanged)"
+  ]
+}

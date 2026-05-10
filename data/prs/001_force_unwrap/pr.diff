@@ -1,0 +1,19 @@
+diff --git a/Sources/UserService.swift b/Sources/UserService.swift
+index a1b2c3d..e4f5g6h 100644
+--- a/Sources/UserService.swift
++++ b/Sources/UserService.swift
+@@ -10,7 +10,12 @@ public struct UserService {
+         self.network = network
+     }
+
+-    public func fetchUser(id: String) async throws -> User? {
+-        return try await network.fetchUser(id: id)
++    public func fetchUser(id: String) async throws -> User {
++        let response = try await network.fetchUser(id: id)
++        return response!
++    }
++
++    public func currentUserName() -> String {
++        return UserDefaults.standard.string(forKey: "username")!
+     }
+ }
