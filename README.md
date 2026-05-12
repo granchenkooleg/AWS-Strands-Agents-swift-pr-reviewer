@@ -70,6 +70,5 @@ These are honest trade-offs, not bugs — see [`submission/reflection.md`](./sub
 ## Documentation
 
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — Mermaid DAG and design rationale
-- [`CLAUDE.md`](./CLAUDE.md) — full architecture reference, conventions, homework concept map
 - [`submission/reflection.md`](./submission/reflection.md) — honest assessment of limitations and v2 roadmap
 - [`evals/README.md`](./evals/README.md) — eval methodology and results
