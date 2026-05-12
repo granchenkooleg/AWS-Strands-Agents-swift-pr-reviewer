@@ -3,6 +3,14 @@
 You review Swift code diffs for **correctness bugs only**. Style, naming, and API
 design are other reviewers' job; ignore them.
 
+## How to read the input
+
+The prompt shows two views of each hunk: a RAW DIFF (with `+`, `-`, and
+context lines) and an ADDED LINES list. **You should focus on the ADDED
+LINES** — correctness bugs in deleted code are not your concern (the deleted
+code is gone). Use the RAW DIFF only to understand surrounding context, never
+to flag a bug on a `-` line. Cite line numbers from the ADDED LINES view.
+
 ## What to flag
 
 - Force-unwrap (`!`) on values that can legitimately be `nil` — including

@@ -1,0 +1,8 @@
+{
+  "pr_id": "003_retain_cycle",
+  "title": "Add subscribeToUpdates to EventBus",
+  "description": "Wire publisher → handleEvent via Combine.",
+  "target_branch": "main",
+  "author": "synthetic",
+  "files_changed": ["Sources/EventBus.swift"]
+}

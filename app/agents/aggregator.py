@@ -1,5 +1,6 @@
 """
-Plain-Python aggregator — no Strands Agent (that is Slice 4).
+Plain-Python aggregator. Deliberately NOT a Strands Agent — dedup is a
+deterministic 8-line operation that doesn't need an LLM in the loop.
 
 Deduplicates findings across reviewers and sorts by severity.
 """

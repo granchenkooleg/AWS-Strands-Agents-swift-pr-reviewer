@@ -1,0 +1,8 @@
+{
+  "pr_id": "002_clean_pr",
+  "title": "Extract URLRequest timeout into a private constant",
+  "description": "Replace the magic number 30 with a named TimeInterval. Pure refactor; no behavior change.",
+  "target_branch": "main",
+  "author": "synthetic",
+  "files_changed": ["Sources/NetworkClient.swift"]
+}

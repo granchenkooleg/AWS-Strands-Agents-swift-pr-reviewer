@@ -1,0 +1,10 @@
+{
+  "pr_id": "002_clean_pr",
+  "expected_findings": [],
+  "must_not_flag": [
+    "the magic-number extraction is a clean refactor",
+    "requestTimeoutSeconds is private — not an API surface",
+    "no force-unwrap, no public API change, no test gap",
+    "naming is camelCase and idiomatic"
+  ]
+}

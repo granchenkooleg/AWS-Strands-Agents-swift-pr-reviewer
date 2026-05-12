@@ -26,8 +26,8 @@ class Hunk(BaseModel):
     file_path: str
     start_line: int = Field(ge=1, description="hunk's first line in the post-change file")
     line_count: int = Field(ge=1)
-    added_lines: list[AddedLine] = Field(description="'+' lines with target line numbers")
-    context_header: str = Field(description="diff @@ header for LLM context")
+    added_lines: list[AddedLine] = Field(description="'+' lines with target line numbers, for citation")
+    raw_hunk: str = Field(description="full unified-diff hunk text incl. @@ header, +, -, and context lines")
 
 
 class Finding(BaseModel):

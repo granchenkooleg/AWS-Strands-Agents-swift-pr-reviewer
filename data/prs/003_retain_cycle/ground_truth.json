@@ -1,0 +1,17 @@
+{
+  "pr_id": "003_retain_cycle",
+  "expected_findings": [
+    {
+      "file_path": "Sources/EventBus.swift",
+      "line": 17,
+      "severity": "major",
+      "category": "correctness",
+      "title_keywords": ["weak self", "retain cycle", "[weak self]", "strong reference"],
+      "rationale": "The .sink closure captures self strongly and is stored in cancellables, which is owned by self — a textbook Combine retain cycle. Per correctness.md blocker definition (`will crash, corrupt data, or violate a documented invariant`), a retain cycle leaks memory but does not crash; therefore severity is major, not blocker."
+    }
+  ],
+  "must_not_flag": [
+    "subscribeToUpdates is internal (no public modifier) so api_design should ignore it",
+    "test_coverage MAY flag this — internal method with no test — borderline; not strictly expected"
+  ]
+}

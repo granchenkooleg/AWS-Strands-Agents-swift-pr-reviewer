@@ -38,10 +38,28 @@ _REVIEWER_CONFIGS: list[tuple[str, str, str]] = [
 
 
 def _format_hunks(hunks: list[Hunk]) -> str:
+    """
+    Render hunks for the reviewer prompt.
+
+    Each hunk shows TWO views:
+      1. RAW DIFF — full unified-diff text with '+', '-', and context lines.
+         Use this to detect *changes* (e.g. return type narrowed, parameter
+         removed). The api_design reviewer in particular needs to compare
+         '-' against '+' to spot source-breaking changes.
+      2. ADDED LINES — numbered list of '+' lines only. Use these line
+         numbers when citing findings; they are the authoritative post-change
+         line numbers.
+    """
     blocks: list[str] = []
     for h in hunks:
         numbered = "\n".join(f"  {al.line_no}: {al.text}" for al in h.added_lines)
-        blocks.append(f"--- {h.file_path} ---\n{h.context_header}\n{numbered}")
+        blocks.append(
+            f"--- {h.file_path} ---\n"
+            f"RAW DIFF (read this to detect changes):\n"
+            f"{h.raw_hunk}\n\n"
+            f"ADDED LINES (cite these line numbers in findings):\n"
+            f"{numbered}"
+        )
     return "\n\n".join(blocks)
 
 

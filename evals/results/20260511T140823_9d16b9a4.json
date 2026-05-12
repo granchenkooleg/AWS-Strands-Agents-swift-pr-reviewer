@@ -1,0 +1,50 @@
+{
+  "run_id": "9d16b9a46f8b",
+  "timestamp": "2026-05-11T14:08:23.131170+00:00",
+  "aggregate": {
+    "n_prs": 3,
+    "n_expected_total": 5,
+    "n_emitted_total": 6,
+    "n_matched_total": 5,
+    "n_severity_correct_total": 4
+  },
+  "per_pr": [
+    {
+      "pr_id": "001_force_unwrap",
+      "n_expected": 4,
+      "n_emitted": 5,
+      "n_matched": 4,
+      "n_severity_correct": 3,
+      "missing": [],
+      "extra": [
+        {
+          "file_path": "Sources/UserService.swift",
+          "line": 18,
+          "severity": "major",
+          "category": "test_coverage",
+          "title": "New public method `currentUserName()` has no test coverage",
+          "body": "The new public method `currentUserName()` was added without any corresponding test in the diff. This method reads from UserDefaults and force-unwraps the result, which introduces multiple execution paths (key exists vs. doesn't exist) that should be tested.",
+          "suggested_action": "Add tests that verify `currentUserName()` returns the correct username when the key exists and handle the case when the key is missing."
+        }
+      ]
+    },
+    {
+      "pr_id": "002_clean_pr",
+      "n_expected": 0,
+      "n_emitted": 0,
+      "n_matched": 0,
+      "n_severity_correct": 0,
+      "missing": [],
+      "extra": []
+    },
+    {
+      "pr_id": "003_retain_cycle",
+      "n_expected": 1,
+      "n_emitted": 1,
+      "n_matched": 1,
+      "n_severity_correct": 1,
+      "missing": [],
+      "extra": []
+    }
+  ]
+}

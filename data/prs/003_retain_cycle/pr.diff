@@ -1,0 +1,16 @@
+diff --git a/Sources/EventBus.swift b/Sources/EventBus.swift
+index a1b2c3d..e4f5g6h 100644
+--- a/Sources/EventBus.swift
++++ b/Sources/EventBus.swift
+@@ -12,4 +12,11 @@ final class EventBus {
+         self.cancellables = []
+     }
+
++    func subscribeToUpdates() {
++        publisher
++            .sink { event in
++                self.handleEvent(event)
++            }
++            .store(in: &cancellables)
++    }
+ }

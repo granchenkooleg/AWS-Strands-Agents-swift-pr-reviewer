@@ -1,0 +1,16 @@
+diff --git a/Sources/NetworkClient.swift b/Sources/NetworkClient.swift
+index a1b2c3d..e4f5g6h 100644
+--- a/Sources/NetworkClient.swift
++++ b/Sources/NetworkClient.swift
+@@ -8,8 +8,10 @@ struct NetworkClient {
+         self.endpoint = endpoint
+     }
+
++    private let requestTimeoutSeconds: TimeInterval = 30
++
+     private func fetchWithTimeout() async throws -> Data {
+-        let request = URLRequest(url: endpoint, timeoutInterval: 30)
++        let request = URLRequest(url: endpoint, timeoutInterval: requestTimeoutSeconds)
+         return try await session.data(for: request).0
+     }
+ }

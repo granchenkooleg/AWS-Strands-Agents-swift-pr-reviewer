@@ -1,82 +1,81 @@
 # NEXT.md — Handoff state
 
-Slice 1 (single Correctness reviewer over PR 001) is complete and smoke-tested.
-Read `CLAUDE.md` first; this file captures only what's *not yet in there*.
+Read `CLAUDE.md` first; this file captures only what's *not yet in there*
+and what the next session should pick up.
 
-## SDK corrections discovered during slice 1
+## Status
 
-Apply these when you next touch CLAUDE.md (after slice 2 is green, per the
-refactor-after-green rule):
+- [x] **Slice 1** — single Correctness reviewer over PR 001.
+- [x] **Slice 2** — Style, ApiDesign, TestCoverage reviewers added; sequential run.
+- [x] **Slice 3** — Strands `Graph` replaces the sequential loop. Parallel fan-out.
+- [x] **Slice 4** — MCP diff-loader, RunLogger hook, report-writer Agent with
+      `swift-review-rubric` skill, HITL interrupt via `BeforeNodeCallEvent`.
+- [ ] **Slice 5** — Evals, observability (OTEL → CloudWatch), Bedrock provider,
+      submission artifacts (ARCHITECTURE.md, reflection.md, screenshots).
 
-- **Use `Agent(structured_output_model=ReviewerOutput, ...)`** — Strands enforces
-  the schema and re-prompts on validation failure natively. The hand-rolled
-  Pydantic retry loop sketched in CLAUDE.md row #8 is **not needed**; delete
-  it from the concept map. Reviewer output is read via `result.structured_output`.
-- **Hook events live at top-level `strands.hooks`** — `BeforeInvocationEvent`,
-  `AfterInvocationEvent`, `BeforeToolCallEvent`, **`AfterToolCallEvent`**
-  (not `AfterToolInvocationEvent` — docs page is stale).
-- **No `Workflow` class** in `strands.multiagent`. Only `GraphBuilder` and `Swarm`.
-  Confirms our Graph choice; nothing to change.
-- **Strands ships model providers**: `from strands.models.anthropic import AnthropicModel`,
-  `from strands.models.bedrock import BedrockModel`. Already wired in `app/provider.py`.
-- **`strands-agents 1.39.0`** is the current PyPI version. Pin in `requirements.txt`
-  before submission.
+## Slice 4 audit notes (already applied)
 
-## Local dev setup
+The audit on 2026-05-10 fixed CLAUDE.md drift and deleted four dead reviewer
+modules (`{correctness,style,api_design,test_coverage}_reviewer.py`) that the
+Slice 3 Graph rewrite had orphaned. Also removed the `load_pr_diff` `@tool`
+from `parse_diff.py` (no caller — MCP path superseded it).
 
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-# add ANTHROPIC_API_KEY to .env
-python -m app.main --pr data/prs/001_force_unwrap
-```
+If you find a stale reference to those modules, fix it; the architecture is
+now: agents constructed inline in `app/graph.py` from `_REVIEWER_CONFIGS` +
+steering markdown.
 
-Expected: 2 blocker findings (the two force-unwraps at L15 and L19).
-The L13 API-break finding won't appear until slice 2 lands the api_design reviewer.
+## Slice 5 work, in priority order
 
-## Slice plan
+1. **Eval corpus** — the load-bearing 4 hours of slice 5. Add ~9 more PRs to
+   `data/prs/`. Each needs `pr.diff` + `metadata.json` + `ground_truth.json`.
+   Cover: retain cycle, missing `[weak self]` in Combine sink, public API
+   breakage, missing test for new branch, naming style violation,
+   no-finding-clean-PR (precision check), unused public symbol, incorrect
+   `@MainActor` annotation, integer overflow on user input.
 
-- [x] **Slice 1** — One reviewer (Correctness), one PR, CLI entry. *Done.*
-- [ ] **Slice 2** — Add Style, ApiDesign, TestCoverage reviewers. Sequential
-      loop in `main.py` (no Graph yet). Each reviewer = its own steering file
-      + its own `app/agents/<name>_reviewer.py`. Aggregator dedup is a plain
-      Python function for now.
-- [ ] **Slice 3** — Replace the sequential loop with `GraphBuilder`.
-      Parallel fan-out at the reviewer stage. This is where the homework's
-      multi-agent rubric item lands.
-- [ ] **Slice 4** — HITL via `BeforeNodeCallEvent` interrupt on the
-      report-writer node. Hooks (`BeforeInvocationEvent` / `AfterInvocationEvent`)
-      writing JSONL to `runs/<run_id>.jsonl`. Skill activation: aggregator
-      activates `swift-review-rubric`. MCP: filesystem MCP serving `data/prs/`.
-- [ ] **Slice 5** — Evals (`evals/run_evals.py` over the corpus, recall +
-      precision). Observability: OTEL → CloudWatch. Bedrock provider enabled
-      for AWS console screenshots. Submission deliverables: ARCHITECTURE.md,
-      reflection.md, screenshots.
+2. **Eval harness** — `evals/run_evals.py` over the corpus.
+   Metrics: recall (expected findings caught), precision (FP rate),
+   severity match rate. Use `strands-evals` if its 0.0.1 API is workable;
+   otherwise write a thin custom harness — the corpus is the deliverable,
+   not the harness.
 
-## Things to grow before slice 5
+3. **Observability** — `app/observability/otel.py`. Wire AWS Distro for
+   OTel; export Strands spans + `RunLogger`-derived custom metrics
+   (`findings_per_pr`, `agent_latency_ms`). Take CloudWatch dashboard
+   screenshots, then disable to avoid metric cost.
 
-The eval corpus is the real bottleneck. By the time slice 4 ships, you need
-~10 PRs in `data/prs/` covering: force-unwrap, retain cycle, missing weak self
-in Combine sink, public API breakage, missing test for new branch, naming
-style violation, no-finding-clean-PR (precision), unused public symbol,
-incorrect `@MainActor` annotation, integer overflow on user input.
+4. **Bedrock provider** — flip the `NotImplementedError` branch in
+   `app/provider.py` to a real `BedrockModel`. Verify model availability
+   in your AWS region first.
 
-Each PR = `pr.diff` + `metadata.json` + `ground_truth.json`. Plan ~30 min per
-PR; that's the load-bearing 4 hours of the homework, not the Strands wiring.
+5. **Submission deliverables**:
+   - `ARCHITECTURE.md` — DAG diagram (Mermaid), design rationale.
+   - `submission/reflection.md` — what worked, what was forced (the MCP
+     diff-loader, the synchronous CLI HITL), what'd change in v2.
+   - `submission/screenshots/` — CLI run, CloudWatch dashboard, eval report.
+
+## Outstanding architectural notes
+
+- **`Hunk.start_line` and `Hunk.line_count` are written but never read.**
+  Trim from the model when convenient. Harmless padding today.
+- **`RunLogger` only emits invocation-level events** — no tool-call or
+  model-call events. Acceptable for the current rubric needs; extend if
+  the observability dashboard demands more granularity.
+- **Two Graphs per run** (reviewer fan-out + report-writer-with-HITL) is
+  intentional. The diff-loader Agent runs outside any Graph. Documented in
+  CLAUDE.md's architecture diagram.
 
 ## Open questions still unresolved
 
 - AWS region + Bedrock model ID for your account — verify before slice 5.
 - ADOT-to-CloudWatch wiring on macOS — local OTEL collector may be needed.
   Document the exact setup once verified.
-- `strands-evals` package layout — install and inspect when slice 5 starts.
+- `strands-evals` 0.0.1 API surface — install and inspect when you start.
 
 ## Don't forget
 
-- `BYPASS_TOOL_CONSENT=true` for non-interactive eval runs (community tool
-  consent prompts otherwise block).
-- Don't reach for `swiftlint`, `xcodebuild`, or shell tools — see CLAUDE.md
-  "Things to NOT do".
-- Steering changes go in `app/agents/_steering/*.md`, never inline as Python
-  strings.
+- `BYPASS_TOOL_CONSENT=true` for non-interactive eval runs.
+- No `swiftlint`, `xcodebuild`, or shell tools — see CLAUDE.md "Things to NOT do".
+- Steering changes go in `app/agents/_steering/*.md`, never inline as Python strings.
+- After any architectural change, re-run `python -m app.main --pr data/prs/001_force_unwrap`
+  to make sure the green path still works before claiming a slice complete.

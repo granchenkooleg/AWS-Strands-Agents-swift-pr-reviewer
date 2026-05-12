@@ -20,10 +20,26 @@
     {
       "file_path": "Sources/UserService.swift",
       "line": 13,
+      "severity": "blocker",
+      "category": "api_design",
+      "title_keywords": ["api break", "breaking change", "non-optional", "return type", "removed optionality", "source-breaking"],
+      "rationale": "Public method changed from User? to User — source-breaking change for callers. Per steering, source-breaking signature changes are blocker."
+    },
+    {
+      "file_path": "Sources/UserService.swift",
+      "line": 18,
       "severity": "major",
       "category": "api_design",
-      "title_keywords": ["api break", "breaking change", "non-optional", "return type"],
-      "rationale": "Public method changed from User? to User — source-breaking change for callers"
+      "title_keywords": ["non-optional", "optionality", "mask", "underlying"],
+      "rationale": "currentUserName() returns non-optional String but the underlying UserDefaults.string(forKey:) is Optional<String>. The signature lies to callers about whether nil is possible. Should be -> String? or take a default."
+    },
+    {
+      "file_path": "Sources/UserService.swift",
+      "line": 18,
+      "severity": "major",
+      "category": "test_coverage",
+      "title_keywords": ["test coverage", "no test", "test case", "untested"],
+      "rationale": "currentUserName() is a new public method introduced in this diff with no accompanying test. Per test_coverage.md, new public/open declarations without a test entry point in the diff are flagged at severity major."
     }
   ],
   "must_not_flag": [

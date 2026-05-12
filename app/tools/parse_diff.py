@@ -1,14 +1,11 @@
 """
-Diff parser tool.
+Diff parser.
 
-Pure function `parse_unified_diff` is unit-testable; the @tool wrapper
-exposes it to Strands agents. Hand-rolled regex for diff parsing is
-forbidden — `unidiff` handles renames, binary files, and missing-newline-
-at-EOF correctly.
+`parse_unified_diff` is a pure function called directly by main.py after the
+diff loader (MCP agent or direct read) returns raw text. Hand-rolled regex
+for diff parsing is forbidden — `unidiff` handles renames, binary files,
+and missing-newline-at-EOF correctly.
 """
-from pathlib import Path
-
-from strands import tool
 from unidiff import PatchSet
 
 from app.models import AddedLine, Hunk
@@ -46,29 +43,7 @@ def parse_unified_diff(diff_text: str) -> list[Hunk]:
                 start_line=hunk.target_start,
                 line_count=hunk.target_length,
                 added_lines=added,
-                context_header=str(hunk).splitlines()[0],
+                raw_hunk=str(hunk).rstrip("\n"),
             ))
 
     return hunks
-
-
-@tool
-def load_pr_diff(pr_directory: str) -> list[dict]:
-    """
-    Load and parse a PR's unified diff from its corpus directory.
-
-    Args:
-        pr_directory: Absolute or relative path to a `data/prs/<pr_id>/`
-            folder containing `pr.diff` and `metadata.json`.
-
-    Returns:
-        A list of hunk dicts (Pydantic-serialized) ready for an LLM to read.
-        Each entry has: file_path, start_line, line_count, added_lines,
-        context_header.
-    """
-    diff_path = Path(pr_directory) / "pr.diff"
-    if not diff_path.exists():
-        raise FileNotFoundError(f"No pr.diff under {pr_directory!r}")
-
-    hunks = parse_unified_diff(diff_path.read_text())
-    return [h.model_dump() for h in hunks]
