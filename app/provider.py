@@ -2,16 +2,13 @@
 Model provider selection.
 
 STRANDS_PROVIDER=anthropic (default) → AnthropicModel using ANTHROPIC_API_KEY
-STRANDS_PROVIDER=bedrock              → BedrockModel using AWS creds (slice 5)
+STRANDS_PROVIDER=bedrock              → BedrockModel using AWS creds + region
 
-The Anthropic path is the daily-dev path. Bedrock is wired in slice 5 when
-we cut the AWS console screenshots for the homework submission.
-
-Memoization: build_model() is `@lru_cache`d. Each unique max_tokens value
-produces exactly one model instance for the lifetime of the process. This
-prevents httpx.AsyncClient proliferation across many Agent instances
-(empirically: the eval used to create 12+ clients per run, racing asyncio
-shutdown and spewing "Event loop is closed" tracebacks).
+Memoization: build_model() is `@lru_cache`d. Each unique (provider, max_tokens,
+model_id) combination produces exactly one model instance for the lifetime of
+the process. This prevents httpx.AsyncClient proliferation across many Agent
+instances (empirically: the eval used to create 12+ clients per run, racing
+asyncio shutdown and spewing "Event loop is closed" tracebacks).
 """
 import os
 from functools import lru_cache
@@ -23,7 +20,7 @@ load_dotenv()
 
 
 _DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-5-20250929"
-_DEFAULT_BEDROCK_MODEL = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+_DEFAULT_BEDROCK_MODEL = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
 
 @lru_cache(maxsize=None)
@@ -32,6 +29,16 @@ def _cached_anthropic_model(max_tokens: int, api_key: str, model_id: str) -> Any
     return AnthropicModel(
         client_args={"api_key": api_key},
         model_id=model_id,
+        max_tokens=max_tokens,
+    )
+
+
+@lru_cache(maxsize=None)
+def _cached_bedrock_model(max_tokens: int, region: str, model_id: str) -> Any:
+    from strands.models import BedrockModel
+    return BedrockModel(
+        model_id=model_id,
+        region_name=region,
         max_tokens=max_tokens,
     )
 
@@ -58,10 +65,21 @@ def build_model(*, max_tokens: int = 1024) -> Any:
         )
 
     if provider == "bedrock":
-        # Slice 5: enable for AWS console screenshots.
-        raise NotImplementedError(
-            "Bedrock provider is deferred to slice 5. "
-            "Set STRANDS_PROVIDER=anthropic for now."
+        region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+        if not region:
+            raise RuntimeError(
+                "AWS_REGION not set. Add AWS_REGION=us-east-1 to .env "
+                "(or export AWS_DEFAULT_REGION)."
+            )
+        if not (os.getenv("AWS_ACCESS_KEY_ID") or os.getenv("AWS_PROFILE")):
+            raise RuntimeError(
+                "No AWS credentials found. Set AWS_ACCESS_KEY_ID + "
+                "AWS_SECRET_ACCESS_KEY, or AWS_PROFILE, in .env."
+            )
+        return _cached_bedrock_model(
+            max_tokens,
+            region,
+            os.getenv("BEDROCK_MODEL_ID", _DEFAULT_BEDROCK_MODEL),
         )
 
     raise ValueError(

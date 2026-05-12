@@ -37,8 +37,21 @@ The CLI `input()` is a stand-in that demonstrates the pattern without implementi
 
 ### (d) What would change in v2
 
-- **Bedrock provider**: flip the `NotImplementedError` stub in `app/provider.py` to `boto3`-backed Bedrock. The provider interface already abstracts this; the change is ~20 lines plus verified model IDs per region.
-- **ADOT/CloudWatch**: wire `app/observability/` with AWS Distro for OpenTelemetry. Export traces to CloudWatch X-Ray; build a dashboard over the `RunLogger` JSONL metrics. The hook data is already structured for this.
-- **Expand corpus**: 20–30 PR fixtures across the Swift issue categories listed above. With a real corpus, the eval numbers become meaningful submission evidence rather than illustrative.
-- **Async HITL**: replace `input()` with a thin FastAPI server + `session_manager` so the interrupt can be resolved from a mobile client or Slack bot without blocking the process.
+- **Bedrock provider**: ✅ landed in Push 2. `app/provider.py` now selects `BedrockModel` when `STRANDS_PROVIDER=bedrock`, memoized on `(region, model_id, max_tokens)`. End-to-end run on `us.anthropic.claude-sonnet-4-5-20250929-v1:0` (cross-region inference profile) produced 5 findings on `001_force_unwrap`; the eval harness re-ran the full corpus and scored 6/6 matched (R=1.00, P=1.00, Sev=1.00). The first model ID I tried (`anthropic.claude-3-5-sonnet-20241022-v2:0` from the original `.env.example`) had reached EOL — switching to the `us.` inference profile was the only material wrinkle.
+- **ADOT/CloudWatch**: partially landed. `app/observability/tracing.py` initializes an OTLP HTTP exporter when `OTEL_EXPORTER_OTLP_ENDPOINT` is set and `main.py` calls it at startup. I did **not** stand up an ADOT collector locally for the demo run, so spans never left the process. Per-agent telemetry evidence ships as JSONL via the `RunLogger` hook (`submission/traces/bedrock_run_70abcf53a8fd.jsonl` — 6 lines, one per agent invocation, with latency and token counts). Wiring the collector + exporting to CloudWatch X-Ray is a deployment task, not a code task; the SDK side is done.
+- **Expand corpus**: still 3 PRs — descoped from Push 2 as well. Real eval signal needs 20–30 PRs across the Swift issue categories.
+- **Async HITL**: still synchronous CLI `input()`. The replacement would be a thin FastAPI server + `session_manager` so the interrupt can be resolved from a mobile client or Slack bot without blocking the process.
 - **GitHub integration**: replace the static `data/prs/` directory with a real GitHub webhook → diff fetch flow. The rest of the pipeline wouldn't change.
+
+---
+
+## Push 2 — what actually landed
+
+Push 1 (`v1.0-submission`) shipped the docs and the steering-prompt refactor. Push 2 (`v1.1-aws`) adds the AWS deliverable:
+
+- `app/provider.py`: `BedrockProvider` path live, sandbox-tested against `us.anthropic.claude-sonnet-4-5-20250929-v1:0`.
+- `app/observability/tracing.py`: OTel SDK initialization, gated on `OTEL_EXPORTER_OTLP_ENDPOINT` so the Anthropic dev path stays noise-free.
+- `app/main.py`: calls `setup_tracing()` at startup; prints a one-line confirmation when the collector endpoint is configured.
+- `.env.example`: created (was missing from Push 1 despite being referenced in the README quick-start). Documents the Bedrock path and explicitly omits secrets.
+- `submission/traces/bedrock_run_*.jsonl` + `submission/traces/bedrock_eval_*.json`: real evidence of an end-to-end Bedrock run and an eval over Bedrock.
+- `evals/results/latest.json`: refreshed to point at the Bedrock-scored run.

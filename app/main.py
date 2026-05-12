@@ -25,6 +25,7 @@ from app.graph import build_report_writer_graph, run_reviewers
 from app.hooks.approval import ApprovalHook
 from app.hooks.instrumentation import RunLogger
 from app.models import Finding
+from app.observability.tracing import setup_tracing
 from app.tools.parse_diff import parse_unified_diff
 
 
@@ -166,6 +167,9 @@ def main() -> int:
     console = Console()
     run_id = uuid.uuid4().hex[:12]
     run_logger = RunLogger(run_id)
+
+    if setup_tracing():
+        console.print("[dim]OTel tracing → ADOT/CloudWatch enabled.[/dim]")
 
     console.print(f"[dim]run_id={run_id}[/dim]")
 

@@ -28,10 +28,10 @@ STRANDS_PROVIDER=anthropic python -m app.main --pr data/prs/001_force_unwrap
 BYPASS_TOOL_CONSENT=true python -m evals.run_evals
 ```
 
-For Bedrock (Push 2 — requires AWS credentials):
+For Bedrock (requires AWS credentials — fill `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION=us-east-1` in `.env`; the default `BEDROCK_MODEL_ID` is the `us.` cross-region inference profile for Claude Sonnet 4.5):
 ```bash
-STRANDS_PROVIDER=bedrock OTEL_SERVICE_NAME=swift-pr-reviewer \
-    python -m app.main --pr data/prs/001_force_unwrap
+STRANDS_PROVIDER=bedrock python -m app.main --pr data/prs/001_force_unwrap
+STRANDS_PROVIDER=bedrock BYPASS_TOOL_CONSENT=true python -m evals.run_evals
 ```
 
 ---
@@ -51,8 +51,8 @@ Every rubric requirement maps to a concrete file or module:
 | 7 | Interrupt (HITL) | `app/hooks/approval.py` — `ApprovalHook` raises `event.interrupt(...)` before the report-writer node. Main loop prompts per finding and resumes with accepted/rejected decisions. | ✅ |
 | 8 | Retries | Strands `structured_output_model=ReviewerOutput` re-prompts on schema failure. Graph-level fail-soft: a broken reviewer is skipped; others still produce signal. | ✅ |
 | 9 | Multi-agent pattern | Strands **Graph** in `app/graph.py`: two graphs — (a) 4 parallel reviewer nodes, no edges; (b) single report-writer node with HITL hook. | ✅ |
-| 10 | Evaluations | `evals/run_evals.py` — loads `data/prs/*/ground_truth.json`, runs pipeline, computes recall / precision / severity-match. Latest result: 3 PRs, 6/6 findings matched. | ✅ |
-| 11 | Observability | `app/observability/` stub — ADOT/CloudWatch wiring planned for Push 2 (Bedrock provider flip). | ⏳ |
+| 10 | Evaluations | `evals/run_evals.py` — loads `data/prs/*/ground_truth.json`, runs pipeline, computes recall / precision / severity-match. Latest Bedrock result (`evals/results/latest.json`): 3 PRs, **6/6 matched, R=1.00, P=1.00, Sev=1.00**. | ✅ |
+| 11 | Observability | `app/hooks/instrumentation.py` writes structured JSONL traces (`runs/<run_id>.jsonl` — see `submission/traces/bedrock_run_*.jsonl`). `app/observability/tracing.py` initializes an OTLP exporter when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; ADOT collector setup is a deployment task. | ✅ |
 
 ---
 
@@ -63,7 +63,7 @@ These are honest trade-offs, not bugs — see [`submission/reflection.md`](./sub
 - **3-PR corpus**: sufficient to demonstrate the eval harness, not enough for meaningful recall/precision numbers at scale.
 - **MCP diff-loader is decorative**: the CLI reads the diff file directly; the MCP path shows the integration pattern but isn't exercised end-to-end from an external client.
 - **HITL is synchronous CLI**: the `input()` interrupt in Graph 2 demonstrates the Strands mechanic; a production iOS reviewer would use an async webhook/push-notification callback.
-- **Bedrock provider is stubbed**: `app/provider.py` raises `NotImplementedError` for the Bedrock path; wiring is planned for Push 2.
+- **CloudWatch trace export not demonstrated**: `app/observability/tracing.py` initializes the OTel SDK when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, but no ADOT collector was run alongside the demo. Per-agent observability evidence ships as `submission/traces/bedrock_run_*.jsonl` (`RunLogger` hook output) instead of a CloudWatch dashboard screenshot.
 
 ---
 

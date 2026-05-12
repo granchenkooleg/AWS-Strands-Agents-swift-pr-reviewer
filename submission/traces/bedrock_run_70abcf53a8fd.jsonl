@@ -1,0 +1,6 @@
+{"event": "invocation", "ts": "2026-05-12T13:16:28.777394+00:00", "run_id": "70abcf53a8fd", "agent": "diff-loader", "latency_ms": 15029, "input_tokens": 15645, "output_tokens": 497}
+{"event": "invocation", "ts": "2026-05-12T13:16:33.797671+00:00", "run_id": "70abcf53a8fd", "agent": "style-reviewer", "latency_ms": 4976, "input_tokens": 1857, "output_tokens": 98}
+{"event": "invocation", "ts": "2026-05-12T13:16:34.546544+00:00", "run_id": "70abcf53a8fd", "agent": "test-coverage-reviewer", "latency_ms": 5718, "input_tokens": 1982, "output_tokens": 239}
+{"event": "invocation", "ts": "2026-05-12T13:16:37.276195+00:00", "run_id": "70abcf53a8fd", "agent": "correctness-reviewer", "latency_ms": 8447, "input_tokens": 1916, "output_tokens": 468}
+{"event": "invocation", "ts": "2026-05-12T13:16:38.788672+00:00", "run_id": "70abcf53a8fd", "agent": "api-design-reviewer", "latency_ms": 9961, "input_tokens": 2260, "output_tokens": 460}
+{"event": "invocation", "ts": "2026-05-12T13:16:50.271433+00:00", "run_id": "70abcf53a8fd", "agent": "report-writer", "latency_ms": 11383, "input_tokens": 5258, "output_tokens": 807}
