@@ -1,11 +1,11 @@
 {
-  "run_id": "30e853c56009",
-  "timestamp": "2026-05-12T19:52:21.690158+00:00",
+  "run_id": "e436eef72a2c",
+  "timestamp": "2026-05-12T13:30:25.563520+00:00",
   "aggregate": {
     "n_prs": 3,
     "n_expected_total": 6,
     "n_emitted_total": 6,
-    "n_matched_total": 6,
+    "n_matched_total": 5,
     "n_severity_correct_total": 5
   },
   "per_pr": [
@@ -13,8 +13,8 @@
       "pr_id": "001_force_unwrap",
       "n_expected": 5,
       "n_emitted": 5,
-      "n_matched": 5,
-      "n_severity_correct": 5,
+      "n_matched": 4,
+      "n_severity_correct": 4,
       "matched": [
         {
           "emitted": {
@@ -22,9 +22,9 @@
             "line": 15,
             "severity": "blocker",
             "category": "correctness",
-            "title": "Force-unwrap on optional network response will crash",
-            "body": "The line `return response!` force-unwraps the result of `network.fetchUser(id:)`, which returns `User?`. If the network layer legitimately returns `nil` (e.g., user not found, 404 response), this will crash at runtime. The original implementation correctly returned `User?` to handle this case.",
-            "suggested_action": "Either keep the return type as `User?` and return `response` directly, or throw a specific error when `response` is `nil` instead of force-unwrapping."
+            "title": "Force-unwrap on optional network response",
+            "body": "Line 15: `return response!` force-unwraps the result of `network.fetchUser(id:)`, which returns `User?`. If the network layer legitimately returns `nil` (e.g., user not found, 404 response), this will crash at runtime.",
+            "suggested_action": "Either propagate the optional (`-> User?`) or throw a domain error when `response` is nil instead of force-unwrapping."
           },
           "expected": {
             "file_path": "Sources/UserService.swift",
@@ -46,9 +46,9 @@
             "line": 19,
             "severity": "blocker",
             "category": "correctness",
-            "title": "Force-unwrap on UserDefaults will crash if key is missing",
-            "body": "The line `return UserDefaults.standard.string(forKey: \"username\")!` force-unwraps the result of `string(forKey:)`, which returns `String?`. If the \"username\" key has never been set or was removed, this returns `nil` and the force-unwrap will crash.",
-            "suggested_action": "Return `String?` from this method, or provide a default value using the nil-coalescing operator (`?? \"Guest\"`) if a fallback is appropriate."
+            "title": "Force-unwrap on UserDefaults string lookup",
+            "body": "Line 19: `UserDefaults.standard.string(forKey: \"username\")!` force-unwraps a dictionary lookup that returns `String?`. This will crash if the key is missing or was stored as a non-string type.",
+            "suggested_action": "Return `String?` from `currentUserName()` or provide a default value using the nil-coalescing operator (`?? \"\"`)."
           },
           "expected": {
             "file_path": "Sources/UserService.swift",
@@ -71,9 +71,9 @@
             "line": 13,
             "severity": "blocker",
             "category": "api_design",
-            "title": "Source-breaking return type change removes optionality",
-            "body": "The return type changed from `User?` to `User`, removing optionality. This is a source-breaking change that will break existing callers using optional chaining (`fetchUser(id:)?.property`) or optional binding (`if let user = try? await fetchUser(id:)`). Callers that explicitly handle the nil case will fail to compile.",
-            "suggested_action": "Revert the return type to `User?` to maintain backward compatibility, or introduce this as a new method with a different name (e.g., `fetchUserRequired(id:)`)."
+            "title": "Source-breaking return type narrowing from User? to User",
+            "body": "The return type changed from `User?` to `User`, removing optionality. This is a source-breaking change that will break existing callers who use optional binding (`if let user = ...`), optional chaining (`fetchUser(...)?.name`), or nil-coalescing (`fetchUser(...) ?? defaultUser`). All call sites must be updated.",
+            "suggested_action": "Introduce this as a new method (e.g., `fetchUserRequired(id:)`) or bump the major version if this is an intentional breaking change."
           },
           "expected": {
             "file_path": "Sources/UserService.swift",
@@ -97,35 +97,10 @@
             "file_path": "Sources/UserService.swift",
             "line": 18,
             "severity": "major",
-            "category": "api_design",
-            "title": "Public method returns non-optional String for potentially nil value",
-            "body": "The method signature returns non-optional `String` but retrieves a value from `UserDefaults.standard.string(forKey:)` which returns `String?`. This API contract promises a `String` will always be available, but the underlying storage may not contain the key. Callers have no way to handle the absence of a username through the API contract.",
-            "suggested_action": "Change the return type to `String?` to accurately represent that a username may not be present."
-          },
-          "expected": {
-            "file_path": "Sources/UserService.swift",
-            "line": 18,
-            "severity": "major",
-            "category": "api_design",
-            "title_keywords": [
-              "non-optional",
-              "optionality",
-              "mask",
-              "underlying"
-            ],
-            "rationale": "currentUserName() returns non-optional String but the underlying UserDefaults.string(forKey:) is Optional<String>. The signature lies to callers about whether nil is possible. Should be -> String? or take a default."
-          },
-          "severity_match": true
-        },
-        {
-          "emitted": {
-            "file_path": "Sources/UserService.swift",
-            "line": 18,
-            "severity": "major",
             "category": "test_coverage",
             "title": "New public method `currentUserName()` has no test coverage",
-            "body": "The new public method `currentUserName()` is introduced without any corresponding test in the diff. This method reads from UserDefaults and force-unwraps the result, which are behaviors that should be tested to verify correct key usage and handling of missing values.",
-            "suggested_action": "Add a test that verifies `currentUserName()` returns the expected value when the username key exists in UserDefaults."
+            "body": "A new public method `currentUserName()` has been added without any corresponding test in the diff. This method reads from UserDefaults and force-unwraps the result, which are behaviors that should be tested to ensure the method works correctly and handles expected inputs.",
+            "suggested_action": "Add a test case that verifies `currentUserName()` returns the expected username when the key exists in UserDefaults."
           },
           "expected": {
             "file_path": "Sources/UserService.swift",
@@ -143,8 +118,32 @@
           "severity_match": true
         }
       ],
-      "missing": [],
-      "extra": []
+      "missing": [
+        {
+          "file_path": "Sources/UserService.swift",
+          "line": 18,
+          "severity": "major",
+          "category": "api_design",
+          "title_keywords": [
+            "non-optional",
+            "optionality",
+            "mask",
+            "underlying"
+          ],
+          "rationale": "currentUserName() returns non-optional String but the underlying UserDefaults.string(forKey:) is Optional<String>. The signature lies to callers about whether nil is possible. Should be -> String? or take a default."
+        }
+      ],
+      "extra": [
+        {
+          "file_path": "Sources/UserService.swift",
+          "line": 18,
+          "severity": "major",
+          "category": "api_design",
+          "title": "Public method returns force-unwrapped optional without signaling failure",
+          "body": "The method signature `currentUserName() -> String` promises a non-optional String but the implementation force-unwraps a UserDefaults lookup. From an API design perspective, this method cannot fulfill its contract when the key is missing. The signature should be `-> String?` or `throws` to reflect the possibility of absence.",
+          "suggested_action": "Change the return type to `String?` or make the method `throws` to accurately reflect that a username may not always be available."
+        }
+      ]
     },
     {
       "pr_id": "002_clean_pr",
@@ -161,17 +160,17 @@
       "n_expected": 1,
       "n_emitted": 1,
       "n_matched": 1,
-      "n_severity_correct": 0,
+      "n_severity_correct": 1,
       "matched": [
         {
           "emitted": {
             "file_path": "Sources/EventBus.swift",
             "line": 17,
-            "severity": "blocker",
+            "severity": "major",
             "category": "correctness",
-            "title": "Retain cycle: closure captures `self` strongly",
-            "body": "The sink closure `{ event in self.handleEvent(event) }` captures `self` strongly. Since the cancellable is stored in `self.cancellables`, this creates a retain cycle: `self` \u2192 `cancellables` \u2192 `AnyCancellable` \u2192 closure \u2192 `self`. The subscription will never be deallocated.",
-            "suggested_action": "Use `[weak self]` in the closure: `.sink { [weak self] event in self?.handleEvent(event) }`"
+            "title": "Retain cycle: missing [weak self] in sink closure",
+            "body": "The sink closure on line 17 captures `self` strongly (line 18: `self.handleEvent(event)`). Because this AnyCancellable is stored in `self.cancellables`, you have a retain cycle: EventBus \u2192 cancellables \u2192 sink \u2192 EventBus. This will leak the EventBus instance.",
+            "suggested_action": "Change `.sink { event in` to `.sink { [weak self] event in` and guard or optionally call `self?.handleEvent(event)`."
           },
           "expected": {
             "file_path": "Sources/EventBus.swift",
@@ -186,7 +185,7 @@
             ],
             "rationale": "The .sink closure captures self strongly and is stored in cancellables, which is owned by self \u2014 a textbook Combine retain cycle. Per correctness.md blocker definition (`will crash, corrupt data, or violate a documented invariant`), a retain cycle leaks memory but does not crash; therefore severity is major, not blocker."
           },
-          "severity_match": false
+          "severity_match": true
         }
       ],
       "missing": [],

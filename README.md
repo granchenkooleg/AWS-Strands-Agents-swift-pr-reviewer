@@ -51,8 +51,8 @@ Every rubric requirement maps to a concrete file or module:
 | 7 | Interrupt (HITL) | `app/hooks/approval.py` — `ApprovalHook` raises `event.interrupt(...)` before the report-writer node. Main loop prompts per finding and resumes with accepted/rejected decisions. | ✅ |
 | 8 | Retries | Strands `structured_output_model=ReviewerOutput` re-prompts on schema failure. Graph-level fail-soft: a broken reviewer is skipped; others still produce signal. | ✅ |
 | 9 | Multi-agent pattern | Strands **Graph** in `app/graph.py`: two graphs — (a) 4 parallel reviewer nodes, no edges; (b) single report-writer node with HITL hook. | ✅ |
-| 10 | Evaluations | `evals/run_evals.py` — loads `data/prs/*/ground_truth.json`, runs pipeline, computes recall / precision / severity-match. Latest Bedrock result (`evals/results/latest.json`): 3 PRs, **6/6 matched, R=1.00, P=1.00, Sev=1.00**. | ✅ |
-| 11 | Observability | `app/hooks/instrumentation.py` writes structured JSONL traces (`runs/<run_id>.jsonl` — see `submission/traces/bedrock_run_*.jsonl`). `app/observability/tracing.py` initializes an OTLP exporter when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; ADOT collector setup is a deployment task. | ✅ |
+| 10 | Evaluations | `evals/run_evals.py` — loads `data/prs/*/ground_truth.json`, runs pipeline, computes recall / precision / severity-match. Latest Bedrock result (`evals/results/latest.json`): 3 PRs, **6/6 matched, R=1.00, P=1.00, Sev=0.83**. | ✅ |
+| 11 | Observability | **Partial.** `app/hooks/instrumentation.py` ships structured JSONL traces per agent invocation — agent name, latency (ms), input/output token counts. Per-Bedrock-run evidence: [`submission/traces/bedrock_run_70abcf53a8fd.jsonl`](./submission/traces/). `app/observability/tracing.py` initializes an OTLP exporter when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, but **no ADOT collector was run alongside the demo**, so spans never reached CloudWatch. JSONL traces are the actual delivered observability surface; CloudWatch export is wired but not exercised. See [`submission/reflection.md`](./submission/reflection.md) for context. | ⚠️ partial |
 
 ---
 
