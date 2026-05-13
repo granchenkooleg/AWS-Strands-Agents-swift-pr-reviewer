@@ -1,7 +1,6 @@
 # Core
-strands-agents>=1.0.0          # verify exact version against current PyPI before pinning
-strands-agents-tools>=0.2.0    # community tools (file_read, current_time, handoff_to_user)
-# strands-evals          # slice 5 only; PyPI version is 0.0.1 — re-enable when needed
+strands-agents>=1.39.0         # AgentSkills, GraphBuilder, BedrockModel, structured_output_model
+strands-agents-tools>=0.2.0    # current_time — the only community tool we wire (in report_writer)
 
 # Model providers (pick one at runtime via STRANDS_PROVIDER)
 boto3>=1.34.0                  # Bedrock

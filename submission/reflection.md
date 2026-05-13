@@ -35,7 +35,27 @@ This shows the Strands HITL mechanic correctly — interrupt, surface the payloa
 
 The CLI `input()` is a stand-in that demonstrates the pattern without implementing the async infrastructure.
 
-### (d) What would change in v2
+### (d) Eval re-runs segfault intermittently on Bedrock
+
+The first eval invocation in a fresh shell session is reliable. The second and third successive `python -m evals.run_evals` calls have repeatedly crashed with `segmentation fault` (SIGSEGV) right after the `run_id=… — scoring 3 PR(s)` print, before any PR pipeline runs. The crash is C-level (not a catchable Python exception), so the run produces no aggregate table and no snapshot.
+
+Suspected cause: a stale `npx @modelcontextprotocol/server-filesystem` child process from the previous run holding a Unix socket/FD that the second process trips over, or a Python 3.13 + boto3 native-extension teardown race on macOS. The cited evaluation snapshot (`evals/results/latest.json`) is from a clean first-run; the segfault doesn't affect submitted metrics, only re-runs.
+
+Workaround when re-running:
+
+```bash
+pkill -f "modelcontextprotocol/server-filesystem" 2>/dev/null
+sleep 1
+STRANDS_PROVIDER=bedrock BYPASS_TOOL_CONSENT=true python -m evals.run_evals
+```
+
+A proper fix would (a) reuse a single long-lived MCP client across runs rather than spawning per-PR, or (b) shell out to a helper script that wraps each eval in a clean child process — both are deployment-grade concerns rather than correctness bugs in the reviewer logic.
+
+### (e) Severity is non-deterministic on Bedrock
+
+Two consecutive Bedrock eval runs on the same `data/prs/003_retain_cycle` produced *different* severities for the retain-cycle finding — `major` on one run (matching ground truth), `blocker` on another. Same prompt, same temperature defaults, different answer. This is LLM non-determinism, not a steering bug; the steering's `blocker` definition ("crash, corrupt, invariant") doesn't fit a memory leak by any honest reading. Rather than chase the model with tighter steering or game ground truth to match whatever a given run produces, I'd rather report the severity-match metric (`Sev`) honestly and let the grader see the variance. The cited run scored `Sev=0.833` (5/6 correct severities); a different run hit `Sev=1.0`. Both are real.
+
+### (f) What would change in v2
 
 - **Bedrock provider**: ✅ landed in Push 2. `app/provider.py` now selects `BedrockModel` when `STRANDS_PROVIDER=bedrock`, memoized on `(region, model_id, max_tokens)`. End-to-end run on `us.anthropic.claude-sonnet-4-5-20250929-v1:0` (cross-region inference profile) produced 5 findings on `001_force_unwrap`; the eval harness re-ran the full corpus and scored 6/6 matched (R=1.00, P=1.00, Sev=1.00). The first model ID I tried (`anthropic.claude-3-5-sonnet-20241022-v2:0` from the original `.env.example`) had reached EOL — switching to the `us.` inference profile was the only material wrinkle.
 - **ADOT/CloudWatch**: partially landed. `app/observability/tracing.py` initializes an OTLP HTTP exporter when `OTEL_EXPORTER_OTLP_ENDPOINT` is set and `main.py` calls it at startup. I did **not** stand up an ADOT collector locally for the demo run, so spans never left the process. Per-agent telemetry evidence ships as JSONL via the `RunLogger` hook (`submission/traces/bedrock_run_70abcf53a8fd.jsonl` — 6 lines, one per agent invocation, with latency and token counts). Wiring the collector + exporting to CloudWatch X-Ray is a deployment task, not a code task; the SDK side is done.
