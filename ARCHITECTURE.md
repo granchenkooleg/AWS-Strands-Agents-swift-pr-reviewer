@@ -69,7 +69,7 @@ swift-pr-reviewer/
 │   ├── main.py                 ← CLI; orchestrates both graphs + HITL loop
 │   ├── graph.py                ← run_reviewers() + build_report_writer_graph()
 │   ├── models.py               ← Pydantic: AddedLine, Hunk, Finding, ReviewerOutput
-│   ├── provider.py             ← Anthropic provider; Bedrock stub (Push 2)
+│   ├── provider.py             ← Anthropic + Bedrock providers (memoized)
 │   ├── agents/
 │   │   ├── diff_loader.py      ← MCP-filesystem reader Agent
 │   │   ├── aggregator.py       ← plain Python dedup + sort

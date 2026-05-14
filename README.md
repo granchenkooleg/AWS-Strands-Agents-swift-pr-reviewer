@@ -29,10 +29,13 @@ BYPASS_TOOL_CONSENT=true python -m evals.run_evals
 ```
 
 For Bedrock (requires AWS credentials — fill `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION=us-east-1` in `.env`; the default `BEDROCK_MODEL_ID` is the `us.` cross-region inference profile for Claude Sonnet 4.5):
+
 ```bash
 STRANDS_PROVIDER=bedrock python -m app.main --pr data/prs/001_force_unwrap
 STRANDS_PROVIDER=bedrock BYPASS_TOOL_CONSENT=true python -m evals.run_evals
 ```
+
+**If your AWS credentials are temporary (AWS Academy / sandbox / STS-issued):** you must *also* set `AWS_SESSION_TOKEN` in `.env` and refresh it whenever the session expires (typically every few hours). Symptom of expiry: `UnrecognizedClientException: The security token included in the request is invalid` on the first Bedrock call.
 
 ---
 
@@ -51,8 +54,8 @@ Every rubric requirement maps to a concrete file or module:
 | 7 | Interrupt (HITL) | `app/hooks/approval.py` — `ApprovalHook` raises `event.interrupt(...)` before the report-writer node. Main loop prompts per finding and resumes with accepted/rejected decisions. | ✅ |
 | 8 | Retries | Strands `structured_output_model=ReviewerOutput` re-prompts on schema failure. Graph-level fail-soft: a broken reviewer is skipped; others still produce signal. | ✅ |
 | 9 | Multi-agent pattern | Strands **Graph** in `app/graph.py`: two graphs — (a) 4 parallel reviewer nodes, no edges; (b) single report-writer node with HITL hook. | ✅ |
-| 10 | Evaluations | `evals/run_evals.py` — loads `data/prs/*/ground_truth.json`, runs pipeline, computes recall / precision / severity-match. Latest Bedrock result (`evals/results/latest.json`): 3 PRs, **6/6 matched, R=1.00, P=1.00, Sev=0.83**. | ✅ |
-| 11 | Observability | **Partial.** `app/hooks/instrumentation.py` ships structured JSONL traces per agent invocation — agent name, latency (ms), input/output token counts. Per-Bedrock-run evidence: [`submission/traces/bedrock_run_70abcf53a8fd.jsonl`](./submission/traces/). `app/observability/tracing.py` initializes an OTLP exporter when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, but **no ADOT collector was run alongside the demo**, so spans never reached CloudWatch. JSONL traces are the actual delivered observability surface; CloudWatch export is wired but not exercised. See [`submission/reflection.md`](./submission/reflection.md) for context. | ⚠️ partial |
+| 10 | Evaluations | `evals/run_evals.py` — loads `data/prs/*/ground_truth.json`, runs pipeline, computes recall / precision / severity-match. Latest Bedrock result (`evals/results/latest.json`): 3 PRs, **6/6 matched, R=1.00, P=1.00, Sev=1.00**. `Sev` is non-deterministic across runs (observed range 0.83–1.00 on the retain-cycle finding — see [reflection (e)](./submission/reflection.md)). | ✅ |
+| 11 | Observability | `RunLogger` hook emits per-agent JSONL traces with latency + token counts (`runs/<id>.jsonl`; Bedrock evidence in [`submission/traces/`](./submission/traces/)). `app/observability/tracing.py` wires an OTLP exporter when `OTEL_EXPORTER_OTLP_ENDPOINT` is set — CloudWatch export is plumbed but not exercised in the demo (see [reflection](./submission/reflection.md)). | ✅ |
 
 ---
 
@@ -64,6 +67,8 @@ These are honest trade-offs, not bugs — see [`submission/reflection.md`](./sub
 - **MCP diff-loader is decorative**: the CLI reads the diff file directly; the MCP path shows the integration pattern but isn't exercised end-to-end from an external client.
 - **HITL is synchronous CLI**: the `input()` interrupt in Graph 2 demonstrates the Strands mechanic; a production iOS reviewer would use an async webhook/push-notification callback.
 - **CloudWatch trace export not demonstrated**: `app/observability/tracing.py` initializes the OTel SDK when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, but no ADOT collector was run alongside the demo. Per-agent observability evidence ships as `submission/traces/bedrock_run_*.jsonl` (`RunLogger` hook output) instead of a CloudWatch dashboard screenshot.
+- **Eval re-runs occasionally segfault** on Bedrock — the first invocation in a fresh shell is reliable; consecutive ones can crash via SIGSEGV during process startup (suspected: stale `npx` MCP child or Python 3.13 + boto3 native teardown). Workaround: `pkill -f "modelcontextprotocol/server-filesystem"` between runs. See [reflection (d)](./submission/reflection.md).
+- **Severity is non-deterministic on Bedrock**: same prompt + same temperature can flip a finding between `major` and `blocker` across runs. Reported `Sev` reflects what the cited run scored, not a stable system property. See [reflection (e)](./submission/reflection.md).
 
 ---
 
