@@ -1,20 +1,32 @@
-# Agent guidance
+# Agent guidance — Swift PR Reviewer
 
-Read [README.md](README.md), [ARCHITECTURE.md](ARCHITECTURE.md), [evaluation methodology](evals/README.md), and [limitations](submission/reflection.md) before proposing changes. Existing educational Swift scope and saved evaluation history remain unchanged.
+## Project context
 
-## Portfolio task routing (2026-10-20)
+Read [README.md](README.md), [ARCHITECTURE.md](ARCHITECTURE.md), [evaluation methodology](evals/README.md), and [limitations](submission/reflection.md) before proposing changes. These are the local project sources; verify implementation and saved results at the task's exact commit.
 
-For portfolio-directed tasks, explicitly read:
-- [Approved limited Garden release target / delivery workflow](https://github.com/granchenkooleg/GBP-AI-projects/blob/35a5c5f4346efa0683f611e741466e95b8776b64/decisions/P-001-garden-release-target.md).
-- [Release specification and approval limits](https://github.com/granchenkooleg/GBP-AI-projects/blob/35a5c5f4346efa0683f611e741466e95b8776b64/MVP_RELEASE_SPEC.md).
-- [Historical reconciliation / RFC-001 research status](https://github.com/granchenkooleg/GBP-AI-projects/blob/35a5c5f4346efa0683f611e741466e95b8776b64/reviews/2026-10-20-product-intent-and-mvp.md).
+This file guides coding agents working on this repository. It is not a review rubric or runtime reviewer prompt; those live in app/agents/_steering/ and skills/swift-review-rubric/. Changing developer guidance does not implement runtime behavior.
 
-These are pinned coordination records in a private repository (GBP-AI-projects Draft PR #1), not replacements for this repository's governing specifications. The high-level Garden operator-assisted CLI scenario is accepted; detailed G-AC/B-AC/R-AC criteria remain proposed. This instruction update does not adopt new runtime behavior, alter contracts, or authorize implementation/merge/model runs. Surface conflicts; preserve existing local rules and frozen studies.
+## Scope and delivery
 
-Check access explicitly. A cross-repository link is not automatically loaded by Claude/Codex. If access fails, report the missing source and use an owner-supplied exact approved revision; do not guess policy or request broad credentials. The task must identify its milestone, accepted scope and exact implementation SHA for review.
+- Preserve the existing Swift educational deliverable and saved evaluation history. Product hardening and any language-profile expansion need explicit task scope; do not infer them from another project's milestone.
+- For each task/PR, identify the Reviewer requirement or concrete failure prevented, proposed behavior, verification and remaining limitations.
+- Prefer the smallest effective change. Retain useful code; add frameworks or agents only for a demonstrated need.
+- Separate complete review, partial/failed execution, findings and human disposition in analysis. Do not claim the current implementation already enforces a proposed failure policy.
+- Findings about reviewed code need location, causal failure path and impact; state when diff-only context is insufficient.
+- Verify reported metrics against pinned JSON and scorer semantics. Three synthetic PRs are development evidence, not generalized reliability.
+- Use fake agents for deterministic failure-path tests where practical. Run checks relevant to the change; do not make live/paid provider calls without task authorization.
+- Respect existing user authorization. Documentation, implementation, merge and release scopes are distinct; do not infer one from a milestone or request repeated confirmation for already-authorized routine work.
 
-Working sequence: owner defines value → scope/architecture agreed → assigned implementer builds/tests → independent reviewer checks code, requirements and failure cases → owner assesses evidence and progress. Reviewing one's own changes is not independent review. A model's agreement and green test count do not establish product usefulness.
+## Review and accountability
 
-For each new task/PR, name the requirement or concrete failure prevented, its effect on the selected MVP, focused verification and remaining blockers. Extra infrastructure needs a demonstrated blocker and the smallest effective repair. Retain useful implementation; no restart or new agent framework by default. Existing authorization boundaries apply; authorized routine work does not require repeated confirmation.
+Owner defines the goal; scope/architecture are agreed; the assigned implementer builds/tests; an independent reviewer checks the pinned change; owner judges evidence and release readiness.
 
-Reviewer-specific: this guidance does not implement a Python profile, GitHub publishing, or a runtime failure/approval policy. Treat those as separate scoped changes. Verify reports against pinned code and saved JSON; three synthetic PRs are development evidence, not generalized reliability. Use fake agents for deterministic failure-path work where possible; do not make unapproved live provider calls.
+Self-review is not independent review. Distinguish source-verified facts, author reports and hypotheses. Model agreement or green test counts alone do not establish review usefulness.
+
+## Optional portfolio context
+
+For an explicitly portfolio-directed development task, the task may reference the [proposed Reviewer release section](https://github.com/granchenkooleg/GBP-AI-projects/blob/35a5c5f4346efa0683f611e741466e95b8776b64/MVP_RELEASE_SPEC.md#r-mvp--honest-advisory-review-on-actual-swift-diffs). It remains proposed and does not override local specifications.
+
+Ordinary work on this repository does not require access to that private coordination repository. Product decisions from other repositories do not govern this Reviewer. If a portfolio task depends on an inaccessible source, report exactly what is missing and obtain its approved content; do not guess policy or request broad credentials.
+
+For a task that reviews another project's PR, use that target project's applicable requirements supplied in the review context. Keep them separate from requirements for developing the Reviewer itself.
